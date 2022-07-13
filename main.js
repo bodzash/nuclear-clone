@@ -9,6 +9,9 @@ canvas.style.height = "720px";
 let ratioX = .33
 let ratioY = .33
 
+let viewX = canvas.width / 2
+let viewY = canvas.height / 2
+
 let mainArray = [] //main loop shit
 
 // INPUT SETUP
@@ -127,6 +130,47 @@ class Enemy extends _Entity {
 
 }
 
+class Camera {
+  constructor(x, y) {
+    console.log("Camera created")
+    this.x = x
+    this.y = y
+
+    //ctx.translate(-this.x, -this.y)
+    //ctx.translate(canvas.width / 2, canvas.height / 2)
+  }
+
+  Update() {
+    //ctx.translate(-this.x, -this.y)
+    //ctx.translate(canvas.width / 2, canvas.height / 2)
+  }
+}
+
+class Bandit {
+  constructor(x, y) {
+    this.x = x
+    this.y = y
+    this.Create?.()
+  }
+
+  Create() {
+    this.sprite = sprBanditIdle
+    this.frame = 0
+  }
+  Update() {
+    this.frame += 0.22 
+    if (this.frame > 4) this.frame = 0 
+  }
+
+  Render() {
+    ctx.globalAlpha = 0.4
+    ctx.drawImage(shd24, this.x - 12, this.y - 12)
+    ctx.globalAlpha = 1
+
+    ctx.drawImage(this.sprite, 24 * Math.floor(this.frame), 0, 24, 24, this.x -12, this.y -12, 24, 24)
+  }
+}
+
 class BoneFish {
   constructor(x, y) {
     this.x = x
@@ -173,7 +217,7 @@ class Crab {
     ctx.drawImage(shd48, this.x - 24, this.y - 24)
     ctx.globalAlpha = 1
 
-    ctx.drawImage(this.sprite, 48 * Math.floor(this.frame), 0, 48, 48, this.x -24, this.y -24, 48, 48)
+    ctx.drawImage(this.sprite, 48 * Math.floor(this.frame), 0, 48, 48, this.x -24 + viewX, this.y -24 + viewY, 48, 48)
   }
 }
 
@@ -236,6 +280,7 @@ class Player {
   }
   
   Create() {
+    let cam = instanceCreate(Camera, this.x, this.y)
     this.speed = 1.1
     this.ang = 0
     this.sheet = {idle: sprFishIdle, walk: sprFishWalk}
@@ -272,12 +317,15 @@ class Player {
   Render() {
     let angle = pointDirection(this.x, this.y,Input.mouseX, Input.mouseY)
 
+    viewX = canvas.width/2 - this.x
+    viewY = canvas.height/2 - this.y
+    
     if (Input.mouseY <= this.y) {
       ctx.save()
       ctx.translate(this.x, this.y)
       ctx.rotate(angle * 3.14 / 180) //covert it back to radians
       ctx.scale( 1, (Input.mouseX > this.x) ? 1 : -1)
-      ctx.drawImage(sprAssault, 0 -4, 0 -11)
+      ctx.drawImage(sprAssault, -4, -11)
       ctx.restore()
     }
 
@@ -285,11 +333,13 @@ class Player {
     ctx.translate(this.x, this.y)
 
     ctx.globalAlpha = 0.4
-    ctx.drawImage(shd24, 24 / -2, 24 / -2)
+    ctx.drawImage(shd24, -12, -12)
     ctx.globalAlpha = 1
 
     ctx.scale( (Input.mouseX > this.x) ? 1 : -1 , 1)
-    ctx.drawImage(this.sprite, 24 * Math.floor(this.frame), 0, 24, 24, 24 / -2, 24 / -2, 24, 24)
+
+    ctx.drawImage(this.sprite, 24 * Math.floor(this.frame), 0, 24, 24, -12, -12, 24, 24)
+    
     ctx.restore()
     
     if (Input.mouseY >= this.y) {
@@ -300,6 +350,7 @@ class Player {
       ctx.drawImage(sprAssault, 0 -4, 0 -11)
       ctx.restore()
     }
+  
   }
 
 }
@@ -328,9 +379,10 @@ _tileBFiller(firstLevel)
 firstLevel.push({ent: BigFish, x: 160, y: 120})
 firstLevel.push({ent: Crab, x: 110, y: 120})
 firstLevel.push({ent: BoneFish, x: 70, y: 120})
+firstLevel.push({ent: Bandit, x: 35, y: 120})
 
 
-firstLevel.push({ent: Player, x: 44, y: 20})
+firstLevel.push({ent: Player, x: 50, y: 50})
 
 
 //GAME LOOP
@@ -340,7 +392,8 @@ console.log("Game started...")
 
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  mainArray.forEach(ent=> ent.Update?.())
-  mainArray.forEach(ent=> ent.Render?.())
+  mainArray.forEach(ent => { ent.x += viewX; ent.y += viewY}) //viewport bullshit
+  mainArray.forEach(ent => ent.Update?.())
+  mainArray.forEach(ent => ent.Render?.())
   requestAnimationFrame(gameLoop)
 };
