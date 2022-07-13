@@ -15,4 +15,5 @@ body {
 #canvas {
   background-color: rgb(77, 77, 77);
   image-rendering: pixelated;
+  cursor: none;
 }

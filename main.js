@@ -113,6 +113,13 @@ const shd64 = loadSprite("./UI/shd64.png")
 const bckFloor1 = loadSprite("./Environment/floor1.png")
 const bckFloor2 = loadSprite("./Environment/floor1b.png")
 
+const sprAnchor = loadSprite("./Props/anchor.png")
+const sprWaterPlant = loadSprite("./Props/waterPlant.png")
+
+const sprCrosshair = loadSprite("./UI/crosshair.png")
+
+
+
 // LOAD TILES/BCK
 
 // LOAD SOUNDS
@@ -131,18 +138,14 @@ class Enemy extends _Entity {
 }
 
 class Camera {
-  constructor(x, y) {
-    console.log("Camera created")
-    this.x = x
-    this.y = y
-
-    //ctx.translate(-this.x, -this.y)
-    //ctx.translate(canvas.width / 2, canvas.height / 2)
-  }
-
   Update() {
-    //ctx.translate(-this.x, -this.y)
-    //ctx.translate(canvas.width / 2, canvas.height / 2)
+
+  }
+}
+
+class Cursor {
+  Render() {
+    ctx.drawImage(sprCrosshair, Input.mouseX - 6, Input.mouseY - 6)
   }
 }
 
@@ -158,7 +161,7 @@ class Bandit {
     this.frame = 0
   }
   Update() {
-    this.frame += 0.22 
+    this.frame += 0.24 
     if (this.frame > 4) this.frame = 0 
   }
 
@@ -183,7 +186,7 @@ class BoneFish {
     this.frame = 0
   }
   Update() {
-    this.frame += 0.20 
+    this.frame += 0.24 
     if (this.frame > 6) this.frame = 0 
   }
 
@@ -208,7 +211,7 @@ class Crab {
     this.frame = 0
   }
   Update() {
-    this.frame += 0.20 
+    this.frame += 0.24 
     if (this.frame > 5) this.frame = 0 
   }
 
@@ -233,7 +236,7 @@ class BigFish {
     this.frame = 0
   }
   Update() {
-    this.frame += 0.20 
+    this.frame += 0.24 
     if (this.frame > 8) this.frame = 0 
   }
 
@@ -243,6 +246,34 @@ class BigFish {
     ctx.globalAlpha = 1
 
     ctx.drawImage(this.sprite, 64 * Math.floor(this.frame), 0, 64, 64, this.x -32, this.y -32, 64, 64)
+  }
+}
+
+class Anchor {
+  constructor(x, y) {
+    this.x = x
+    this.y = y
+    this.frame = 0
+  }
+
+  Render() {
+    this.frame += 0.26 
+    if (this.frame > 6) this.frame = 0 
+    ctx.drawImage(sprAnchor, 48 * Math.floor(this.frame), 0, 48, 48, this.x, this.y, 48, 48)
+  }
+}
+
+class WaterPlant {
+  constructor(x, y) {
+    this.x = x
+    this.y = y
+    this.frame = 0
+  }
+
+  Render() {
+    this.frame += 0.24 
+    if (this.frame > 10) this.frame = 0 
+    ctx.drawImage(sprWaterPlant, 24 * Math.floor(this.frame), 0, 24, 24, this.x, this.y, 24, 24)
   }
 }
 
@@ -280,8 +311,7 @@ class Player {
   }
   
   Create() {
-    let cam = instanceCreate(Camera, this.x, this.y)
-    this.speed = 1.1
+    this.speed = 1
     this.ang = 0
     this.sheet = {idle: sprFishIdle, walk: sprFishWalk}
     this.sprite = sprFishIdle
@@ -381,8 +411,13 @@ firstLevel.push({ent: Crab, x: 110, y: 120})
 firstLevel.push({ent: BoneFish, x: 70, y: 120})
 firstLevel.push({ent: Bandit, x: 35, y: 120})
 
+firstLevel.push({ent: Anchor, x: 230, y: 70})
+firstLevel.push({ent: WaterPlant, x: 12, y: 200})
 
 firstLevel.push({ent: Player, x: 50, y: 50})
+
+firstLevel.push({ent: Cursor, x: 0, y: 0})
+
 
 
 //GAME LOOP
