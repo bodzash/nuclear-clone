@@ -6,8 +6,8 @@ canvas.focus()
 ctx.imageSmoothingEnabled = false;
 canvas.style.width = "960px";
 canvas.style.height = "720px";
-let ratioX = .33
-let ratioY = .33
+let ratioX = .333
+let ratioY = .333
 
 let viewX = canvas.width / 2
 let viewY = canvas.height / 2
@@ -118,6 +118,11 @@ const sprWaterPlant = loadSprite("./Props/waterPlant.png")
 
 const sprCrosshair = loadSprite("./UI/crosshair.png")
 
+const sndAmbiance1 = loadSound("./Sounds/ambience1.ogg")
+const mscOasis = loadSound("./Sounds/oasis.ogg")
+const mscOasis2 = loadSound("./Sounds/oasis2.ogg")
+
+
 
 
 // LOAD TILES/BCK
@@ -146,6 +151,12 @@ class Camera {
 class Cursor {
   Render() {
     ctx.drawImage(sprCrosshair, Input.mouseX - 6, Input.mouseY - 6)
+    ctx.fillText(`mouse x: ${Input.mouseX}`, 8, 12)
+    ctx.fillText(`mouse y: ${Input.mouseY}`, 8, 24)
+
+    ctx.fillText(`view x: ${viewX}`, 8, 38)
+    ctx.fillText(`view y: ${viewY}`, 8, 48)
+
   }
 }
 
@@ -308,6 +319,8 @@ class Player {
     this.hspeed = 0
     this.vspeed = 0
     this.Create?.()
+    //sndAmbiance1.play()
+    //mscOasis.play()
   }
   
   Create() {
