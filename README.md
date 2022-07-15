@@ -1,2 +1,2 @@
 # nuclear-clone
-Powered by WebSource
+Pure JavaScript game
