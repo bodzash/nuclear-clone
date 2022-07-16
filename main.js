@@ -16,11 +16,11 @@ const viewRenderH = 720
 
 canvas.style.width = `${viewRenderW}px`;
 canvas.style.height = `${viewRenderH}px`;
-let ratioX = viewNativeW / viewRenderW //.333
-let ratioY = viewNativeH /  viewRenderH  //.333
+let ratioX = viewNativeW / viewRenderW
+let ratioY = viewNativeH /  viewRenderH
 
-let viewX = canvas.width / 2
-let viewY = canvas.height / 2
+let viewX = 0 //canvas.width / 2
+let viewY = 0 //canvas.height / 2
 
 let backArray = [] //backgroud / tiles
 let mainArray = [] //main loop shit
@@ -37,7 +37,15 @@ let Input = {
 
   mouseX: 0,
   mouseY: 0,
-  mouseDown: 0
+
+  mouseLeftDown: 0,
+  mouseRightDown: 0,
+
+  mouseLeftUp: 0,
+  mouseRightUp: 0,
+
+  mouseLeftHold: 0,
+  mouseRightHold: 0
 };
 //Later implement premade inputmap defined by user
 
@@ -54,15 +62,19 @@ canvas.addEventListener("mousemove", (event) => {
   Input.mouseX = Math.round((event.x - canvas.offsetLeft) * ratioX)
   Input.mouseY = Math.round((event.y- canvas.offsetTop) * ratioY)
 
-  //Input.mouseX = Math.round((event.x - canvas.offsetLeft) * ratioX) - viewX
-  //Input.mouseY = Math.round((event.y- canvas.offsetTop) * ratioY) - viewY
+  //Input.mouseViewX = Input.mouseX - viewX
+  //Input.mouseViewY = Input.mouseY - viewY
 })
 
-canvas.addEventListener("mousedown", () => {
-  console.log("clicky event")
-  Input.mouseDown = 1
+canvas.addEventListener("mousedown", (event) => {
+  if (event.button === 0) { Input.mouseLeftDown = 1; Input.mouseLeftHold = 1; }
+  if (event.button === 2) { Input.mouseRightDown = 1; Input.mouseRightHold = 1; }
 })
 
+canvas.addEventListener("mouseup", (event) => {
+  if (event.button === 0) { Input.mouseLeftUp = 1; Input.mouseLeftHold = 0; }
+  if (event.button === 2) { Input.mouseRightUp = 1; Input.mouseRightHold = 0; }
+})
 
 
 //BUILT IN ENGINE FUNCTIONS
@@ -142,44 +154,43 @@ function drawSpriteSimple(spr, x, y) {
   ctx.drawImage(spr, x + viewX, y - viewY)
 }
 
+function checkCollision(obj1, obj2) {
+  if (
+    (obj1.x + obj1.colxo) + obj1.colW > (obj2.x + obj2.colxo) &&
+    (obj1.x + obj1.colxo) < (obj2.x + obj2.colxo) + obj2.colW &&
+    (obj1.y + obj1.colyo) + obj1.colH > (obj2.y + obj2.colyo) &&
+    (obj1.y + obj1.colyo) < (obj2.y + obj2.colyo) + obj2.colH
+    )
+  {
+    //console.log("COLLISION")
+    let angDeg = pointDirection(obj2.x + 24, obj2.y + 24, obj1.x, obj1.y)
+
+    obj1.x += Math.round(Math.cos(degToRad(angDeg)))
+    obj1.y += Math.round(Math.sin(degToRad(angDeg)))
+
+    console.log(Math.round(Math.cos(degToRad(angDeg))), Math.round(Math.sin(degToRad(angDeg))))
+  }
+}
 
 // ASSET LOADING
 
 // LOAD SPRITES
 const sprFishIdle = loadSprite("./Players/fishIdle.png")
 const sprFishWalk = loadSprite("./Players/fishWalk.png")
-const sprFishHurt = loadSprite("./Players/fishHurt.png")
-const sprFishDead = loadSprite("./Players/fishDead.png")
-
-
-const sprBigFishIdle = loadSprite("./Bosses/bigFishIdle.png")
-const sprBigFishWalk = loadSprite("./Bosses/bigFishWalk.png")
-const sprBigFishHurt = loadSprite("./Bosses/bigFishHurt.png")
-const sprBigFishDead = loadSprite("./Bosses/bigFishDead.png")
 
 const sprCrabIdle = loadSprite("./Enemies/crabIdle.png")
-
-const sprBoneFishIdle = loadSprite("./Enemies/boneIdle.png")
-
-const sprBanditIdle = loadSprite("./Enemies/banditIdle.png")
 
 const sprAssault = loadSprite("./Weapons/assault.png")
 
 const sprBullet = loadSprite("./Projectiles/bullet1.png")
 
 const shd24 = loadSprite("./UI/shd24.png")
-const shd32 = loadSprite("./UI/shd32.png")
 const shd48 = loadSprite("./UI/shd48.png")
-const shd64 = loadSprite("./UI/shd64.png")
 
 const bckFloor1 = loadSprite("./Environment/floor1.png")
 const bckFloor2 = loadSprite("./Environment/floor1b.png")
 
 const sprAnchor = loadSprite("./Props/anchor.png")
-const sprWaterPlant = loadSprite("./Props/waterPlant.png")
-const sprWaterMine = loadSprite("./Props/waterMine.png")
-const sprOasisBarrel = loadSprite("./Props/oasisBarrel.png")
-
 
 const sprCrosshair = loadSprite("./UI/crosshair.png")
 
@@ -195,8 +206,28 @@ const mscOasis2 = loadSound("./Sounds/oasis2.ogg")
 // LOAD SOUNDS
 
 
+// OTHER CLASSES
+class Vec2 {
+  constructor(x = 0, y = 0) {
+    this.x = x
+    this.y = y
+  }
 
-// LOAD CLASSES
+  normalize() {
+    let m = Math.sqrt(this.x * this.x + this.y * this.y)
+    if (m === 0) m = 1 // if m 0 it will get NaN cuz cant divide by 0
+    this.x /= m
+    this.y /= m
+
+    //console.log(this.x, this.y)
+  }
+
+  dot() {
+
+  }
+}
+
+// GAME CLASSES
 class _Entity {
   constructor() {}
 }
@@ -210,12 +241,13 @@ class Enemy extends _Entity {
 class Cursor {
   Render() {
     ctx.drawImage(sprCrosshair, Input.mouseX - 6, Input.mouseY - 6)  // <- local position 0-320
-
+    /*
     ctx.fillText(`mouse x: ${Input.mouseX}`, 8, 12)
     ctx.fillText(`mouse y: ${Input.mouseY}`, 8, 24)
 
     ctx.fillText(`view x: ${viewX}`, 8, 38)
     ctx.fillText(`view y: ${viewY}`, 8, 48)
+    */
   }
 }
 
@@ -225,6 +257,11 @@ class Bullet {
     this.y = y
     this.angle = 0
     this.frame = 0
+
+    this.colxo = 0
+    this.colyo = -2
+    this.colW = 8
+    this.colH = 8
   }
 
   Update() {
@@ -252,56 +289,6 @@ class Bullet {
   }
 }
 
-class Bandit {
-  constructor(x, y) {
-    this.x = x
-    this.y = y
-    this.Create?.()
-  }
-
-  Create() {
-    this.sprite = sprBanditIdle
-    this.frame = 0
-  }
-  Update() {
-    this.frame += 0.24 
-    if (this.frame > 4) this.frame = 0 
-  }
-
-  Render() {
-    ctx.globalAlpha = 0.4
-    ctx.drawImage(shd24, this.x - 12, this.y - 12)
-    ctx.globalAlpha = 1
-
-    ctx.drawImage(this.sprite, 24 * Math.floor(this.frame), 0, 24, 24, this.x -12, this.y -12, 24, 24)
-    ctx.fillText(`${this.x}, ${this.y}`, this.x, this.y - 10)
-  }
-}
-
-class BoneFish {
-  constructor(x, y) {
-    this.x = x
-    this.y = y
-    this.Create?.()
-  }
-
-  Create() {
-    this.sprite = sprBoneFishIdle
-    this.frame = 0
-  }
-  Update() {
-    this.frame += 0.24 
-    if (this.frame > 6) this.frame = 0 
-  }
-
-  Render() {
-    ctx.globalAlpha = 0.4
-    ctx.drawImage(shd24, this.x - 12, this.y - 12)
-    ctx.globalAlpha = 1
-
-    ctx.drawImage(this.sprite, 24 * Math.floor(this.frame), 0, 24, 24, this.x -12, this.y -12, 24, 24)
-  }
-}
 
 class Crab {
   constructor(x, y) {
@@ -328,78 +315,24 @@ class Crab {
   }
 }
 
-class BigFish {
-  constructor(x, y) {
-    this.x = x
-    this.y = y
-    this.Create?.()
-  }
-
-  Create() {
-    this.sprite = sprBigFishIdle
-    this.frame = 0
-  }
-  Update() {
-    this.frame += 0.24 
-    if (this.frame > 8) this.frame = 0 
-  }
-
-  Render() {
-    ctx.globalAlpha = 0.4
-    ctx.drawImage(shd64, this.x - 32, this.y - 32 - 11)
-    ctx.globalAlpha = 1
-
-    ctx.drawImage(this.sprite, 64 * Math.floor(this.frame), 0, 64, 64, this.x -32, this.y -32, 64, 64)
-  }
-}
-
 class Anchor {
   constructor(x, y) {
     this.x = x
     this.y = y
     this.frame = 0
+
+    this.colxo = 8
+    this.colyo = 8
+    this.colW = 32
+    this.colH = 32
   }
 
   Render() {
     this.frame += 0.26 
     if (this.frame > 6) this.frame = 0 
     ctx.drawImage(sprAnchor, 48 * Math.floor(this.frame), 0, 48, 48, this.x + viewX, this.y + viewY, 48, 48)
-  }
-}
-
-class WaterPlant {
-  constructor(x, y) {
-    this.x = x
-    this.y = y
-    this.frame = 0
-  }
-
-  Render() {
-    this.frame += 0.24 
-    if (this.frame > 10) this.frame = 0 
-    ctx.drawImage(sprWaterPlant, 24 * Math.floor(this.frame), 0, 24, 24, this.x + viewX, this.y + viewY, 24, 24)
-  }
-}
-
-class WaterMine {
-  constructor(x, y) {
-    this.x = x
-    this.y = y
-  }
-
-  Render() {
-    ctx.drawImage(sprWaterMine, this.x + viewX, this.y + viewY)
-  }
-}
-
-class OasisBarrel {
-  constructor(x, y) {
-    this.x = x
-    this.y = y
-  }
-
-  Render() {
-    ctx.drawImage(sprOasisBarrel, this.x + viewX, this.y + viewY)
+    ctx.fillStyle = "rgb(0, 0, 128, .5)"
+    ctx.fillRect((this.x + this.colxo) + Math.floor(viewX), (this.y + this.colyo) + Math.floor(viewY), this.colW, this.colH )
   }
 }
 
@@ -450,6 +383,11 @@ class Player {
     this.sprite = sprFishIdle
     this.prevSprite = this.sprite
     this.frame = 0
+
+    this.colxo = -6
+    this.colyo = -6
+    this.colW = 14
+    this.colH = 14
   }
 
   Update() {
@@ -465,9 +403,19 @@ class Player {
         break
       }
     }
-                    
+    
     this.hspeed = (Input.d - Input.a) * this.speed
     this.vspeed = (Input.s - Input.w) * this.speed
+
+    /*
+    let x = Input.d - Input.a
+    let y = Input.s - Input.w
+    let m = Math.sqrt(x*x + y*y)
+    if (m === 0) m = 1 
+    this.hspeed = x / m
+    this.vspeed = y / m
+    console.log(this.hspeed, this.vspeed)
+    */
     
     this.x += this.hspeed
     this.y += this.vspeed
@@ -476,18 +424,21 @@ class Player {
       
     if (this.sprite !== this.prevSprite) {this.frame = 0; this.prevSprite = this.sprite;}
 
-    if (Input.mouseDown) {
+    if (Input.mouseLeftDown) {
       let bullet = instanceCreate(Bullet, this.x, this.y)
       bullet.angle = this.angle
     }
+    
+    let toColl = mainArray.find(item=> item instanceof Anchor)
+    checkCollision(this, toColl)
+
+    //Set camera focus to these coors
+    viewX = (canvas.width /2 - Math.ceil(this.x)) - Input.mouseX/3 + 160/3
+    viewY = (canvas.height/2 - Math.ceil(this.y)) - Input.mouseY/3 + 120/3
   }
 
   Render() {
     this.angle = pointDirection(this.x, this.y, Input.mouseX - viewX, Input.mouseY - viewY)
-
-    //set camera focus to these coors
-    viewX = (canvas.width /2 - this.x) - Input.mouseX/3 + 160/3
-    viewY = (canvas.height/2 - this.y) - Input.mouseY/3 + 120/3
     
     if (Input.mouseY - viewY <= this.y) {
       ctx.save()
@@ -516,14 +467,12 @@ class Player {
       ctx.translate(this.x + viewX, this.y + viewY)
       ctx.rotate(this.angle * 3.14 / 180) //covert it back to radians
       ctx.scale( 1, (Input.mouseX - viewX > this.x) ? 1 : -1)
-      ctx.drawImage(sprAssault, 0 -4, 0 -11)
+      ctx.drawImage(sprAssault, -4, -11)
       ctx.restore()
     }
 
-    ctx.fillText(`${this.x}, ${this.y}`, 8, 65)
-
-    ctx.fillStyle = "red"
-    ctx.fillRect( 3, 3, 1, 1)
+    ctx.fillStyle = "rgb(0, 0, 128, .5)"
+    ctx.fillRect((this.x + this.colxo) + Math.floor(viewX), (this.y + this.colyo) + Math.floor(viewY), this.colW, this.colH )
   }
 
 }
@@ -550,18 +499,9 @@ const firstLevel = []
 _tileFiller(firstLevel)
 _tileBFiller(firstLevel)
 
-//firstLevel.push({ent: BigFish, x: 160, y: 120})
-firstLevel.push({ent: Crab, x: 110, y: 120})
-//firstLevel.push({ent: BoneFish, x: 70, y: 120})
-//firstLevel.push({ent: Bandit, x: 35, y: 120})
-
-firstLevel.push({ent: Anchor, x: 230, y: 70})
-firstLevel.push({ent: WaterPlant, x: 16, y: 200})
-firstLevel.push({ent: WaterMine, x: 16, y: 64})
-firstLevel.push({ent: OasisBarrel, x: 50, y: 64})
-
-
-firstLevel.push({ent: Player, x: 50, y: 50})
+firstLevel.push({ent: Crab, x: 50, y: 120})
+firstLevel.push({ent: Anchor, x: 130, y: 70})
+firstLevel.push({ent: Player, x: 16, y: 16})
 
 firstLevel.push({ent: Cursor, x: 0, y: 0})
 firstLevel.push({ent: TrackControler})
@@ -584,7 +524,8 @@ function gameLoop() {
 
   frontArray.forEach(ent => ent.Render?.())
 
-  Input.mouseDown = 0
+  Input.mouseLeftDown = 0
+  Input.mouseRightDown = 0
 
   requestAnimationFrame(gameLoop)
 };
