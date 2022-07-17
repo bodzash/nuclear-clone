@@ -1,6 +1,3 @@
-
-import "./test.js"
-
 //PRE GAME
 console.log("Game loading...")
 const canvas = document.getElementById("canvas")
@@ -80,15 +77,12 @@ canvas.addEventListener("mouseup", (event) => {
 //BUILT IN ENGINE FUNCTIONS
 
 // Loads a sprite
-function loadSprite(path, frames=1, xo=0, yo=0) {
-  let spr = new Image();
-  spr.src = path;
-
-  spr.frames = frames
-  spr.xo = xo
-  spr.yo = yo
-
-  return spr;
+function loadSprite(path) {
+  return new Promise(resolve => {
+    let spr = new Image()
+    spr.addEventListener("load", resolve(spr))
+    spr.src = path
+  })
 }
 
 // Loads a level
@@ -162,43 +156,39 @@ function checkCollision(obj1, obj2) {
     (obj1.y + obj1.colyo) < (obj2.y + obj2.colyo) + obj2.colH
     )
   {
-    //console.log("COLLISION")
     let angDeg = pointDirection(obj2.x + 24, obj2.y + 24, obj1.x, obj1.y)
 
     obj1.x += Math.round(Math.cos(degToRad(angDeg)))
     obj1.y += Math.round(Math.sin(degToRad(angDeg)))
-
-    console.log(Math.round(Math.cos(degToRad(angDeg))), Math.round(Math.sin(degToRad(angDeg))))
   }
 }
 
 // ASSET LOADING
 
 // LOAD SPRITES
-const sprFishIdle = loadSprite("./Players/fishIdle.png")
-const sprFishWalk = loadSprite("./Players/fishWalk.png")
 
-const sprCrabIdle = loadSprite("./Enemies/crabIdle.png")
+const sprFishIdle = await loadSprite("./Players/fishIdle.png")
+const sprFishWalk = await loadSprite("./Players/fishWalk.png")
 
-const sprAssault = loadSprite("./Weapons/assault.png")
+const sprBullet = await loadSprite("./Projectiles/bullet1.png")
 
-const sprBullet = loadSprite("./Projectiles/bullet1.png")
+const shd24 = await loadSprite("./UI/shd24.png")
+const shd48 = await loadSprite("./UI/shd48.png")
 
-const shd24 = loadSprite("./UI/shd24.png")
-const shd48 = loadSprite("./UI/shd48.png")
+const bckFloor1 = await loadSprite("./Environment/floor1.png")
+const bckFloor2 = await loadSprite("./Environment/floor1b.png")
 
-const bckFloor1 = loadSprite("./Environment/floor1.png")
-const bckFloor2 = loadSprite("./Environment/floor1b.png")
+const sprAnchor = await loadSprite("./Props/anchor.png")
 
-const sprAnchor = loadSprite("./Props/anchor.png")
+const sprCrosshair = await loadSprite("./UI/crosshair.png")
 
-const sprCrosshair = loadSprite("./UI/crosshair.png")
+const sprAssault = await loadSprite("./Weapons/assault.png")
 
-const sndAmbiance1 = loadSound("./Sounds/ambience1.ogg")
-const mscOasis = loadSound("./Sounds/oasis.ogg")
-const mscOasis2 = loadSound("./Sounds/oasis2.ogg")
+const sprCrabIdle = await loadSprite("./Enemies/crabIdle.png")
 
-
+//const sndAmbiance1 = loadSound("./Sounds/ambience1.ogg")
+//const mscOasis = loadSound("./Sounds/oasis.ogg")
+//const mscOasis2 = loadSound("./Sounds/oasis2.ogg")
 
 
 // LOAD TILES/BCK
@@ -406,16 +396,6 @@ class Player {
     
     this.hspeed = (Input.d - Input.a) * this.speed
     this.vspeed = (Input.s - Input.w) * this.speed
-
-    /*
-    let x = Input.d - Input.a
-    let y = Input.s - Input.w
-    let m = Math.sqrt(x*x + y*y)
-    if (m === 0) m = 1 
-    this.hspeed = x / m
-    this.vspeed = y / m
-    console.log(this.hspeed, this.vspeed)
-    */
     
     this.x += this.hspeed
     this.y += this.vspeed
@@ -511,7 +491,7 @@ firstLevel.push({ent: TrackControler})
 
 //GAME LOOP
 loadLevel(firstLevel)
-requestAnimationFrame(gameLoop) //<- make it that, this will only run when assets are loaded
+requestAnimationFrame(gameLoop)
 console.log("Game started...")
 
 function gameLoop() {
