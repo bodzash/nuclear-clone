@@ -19,6 +19,8 @@ let ratioY = viewNativeH /  viewRenderH
 let viewX = 0 //canvas.width / 2
 let viewY = 0 //canvas.height / 2
 
+let deleteQueue = []
+
 let backArray = [] //backgroud / tiles
 let mainArray = [] //main loop shit
 let frontArray = [] //ui shit
@@ -58,9 +60,6 @@ window.addEventListener("keyup", (event) => {
 canvas.addEventListener("mousemove", (event) => {
   Input.mouseX = Math.round((event.x - canvas.offsetLeft) * ratioX)
   Input.mouseY = Math.round((event.y- canvas.offsetTop) * ratioY)
-
-  //Input.mouseViewX = Input.mouseX - viewX
-  //Input.mouseViewY = Input.mouseY - viewY
 })
 
 canvas.addEventListener("mousedown", (event) => {
@@ -89,7 +88,7 @@ function loadSprite(path) {
 function loadLevel(array) {
   mainArray = []
   array.forEach(item => {
-    instanceCreate(item.ent, item.x, item.y)
+    instanceCreate(item.ent, item.x, item.y, item.layer) //item.layer
   })
 }
 
@@ -123,11 +122,32 @@ function radToDeg(radian) {
   return radian * 180 / 3.14
 }
 
+function lendirX(dist, angle) {
+  return dist * Math.cos(angle)
+}
+
+function lendirY(dist, angle) {
+  return dist * Math.sin(angle)
+}
+
 // Creates an instance from a class at position
-function instanceCreate(cls, x, y) {
+function instanceCreate(cls, x, y, layer = mainArray) {
   let inst = new cls(x, y)
-  mainArray.push(inst)
+  layer.push(inst)
   return inst
+}
+
+function instanceDestroy(ins) {
+  let del = mainArray.findIndex(item => ins == item)
+  mainArray.splice(del, 1)
+}
+
+function instanceFind(className) {
+  return mainArray.find(item => item instanceof className)
+}
+
+function instanceFindAll(className) {
+  return mainArray.filter(item => item instanceof className)
 }
 
 // Renders a sprite same as draw_sprite_ext()
@@ -156,11 +176,24 @@ function checkCollision(obj1, obj2) {
     (obj1.y + obj1.colyo) < (obj2.y + obj2.colyo) + obj2.colH
     )
   {
-    let angDeg = pointDirection(obj2.x + 24, obj2.y + 24, obj1.x, obj1.y)
-
-    obj1.x += Math.round(Math.cos(degToRad(angDeg)))
-    obj1.y += Math.round(Math.sin(degToRad(angDeg)))
+    //resolveCollision(obj1, obj2)
+    return true
+  } else {
+    return false
   }
+}
+
+function resolveCollision(obj1, obj2) {
+  let angDeg = pointDirection(obj2.x, obj2.y, obj1.x, obj1.y)
+
+  if (angDeg > 45 && angDeg < 135) obj1.y += 1
+  if (angDeg > 135 && angDeg < 225) obj1.x -= 1
+  if (angDeg > 225 && angDeg < 315) obj1.y -= 1
+  if (angDeg > 315 || angDeg < 45) obj1.x += 1
+
+  // for cicrcles
+  //obj1.x += Math.round(Math.cos(degToRad(angDeg)))
+  //obj1.y += Math.round(Math.sin(degToRad(angDeg)))
 }
 
 // ASSET LOADING
@@ -178,17 +211,24 @@ const shd48 = await loadSprite("./UI/shd48.png")
 const bckFloor1 = await loadSprite("./Environment/floor1.png")
 const bckFloor2 = await loadSprite("./Environment/floor1b.png")
 
-const sprAnchor = await loadSprite("./Props/anchor.png")
+const sprAnchorIdle = await loadSprite("./Props/anchor.png")
+const sprAnchorHurt = await loadSprite("./Props/anchorHurt.png")
+const sprAnchorDead = await loadSprite("./Props/anchorDead.png")
 
 const sprCrosshair = await loadSprite("./UI/crosshair.png")
 
 const sprAssault = await loadSprite("./Weapons/assault.png")
 
 const sprCrabIdle = await loadSprite("./Enemies/crabIdle.png")
+const sprCrabWalk = await loadSprite("./Enemies/crabWalk.png")
+const sprCrabHurt = await loadSprite("./Enemies/crabHurt.png")
+const sprCrabDead = await loadSprite("./Enemies/crabDead.png")
+const sprCrabFire = await loadSprite("./Enemies/crabFire.png")
+
 
 //const sndAmbiance1 = loadSound("./Sounds/ambience1.ogg")
-//const mscOasis = loadSound("./Sounds/oasis.ogg")
-//const mscOasis2 = loadSound("./Sounds/oasis2.ogg")
+const mscOasis = loadSound("./Sounds/oasis.ogg")
+//const mscOasis = loadSound("./Sounds/oasis2.ogg")
 
 
 // LOAD TILES/BCK
@@ -208,8 +248,6 @@ class Vec2 {
     if (m === 0) m = 1 // if m 0 it will get NaN cuz cant divide by 0
     this.x /= m
     this.y /= m
-
-    //console.log(this.x, this.y)
   }
 
   dot() {
@@ -218,26 +256,12 @@ class Vec2 {
 }
 
 // GAME CLASSES
-class _Entity {
-  constructor() {}
-}
 
-class Enemy extends _Entity {
-  constructor() {super()}
-
-
-}
+class Enemy {}
 
 class Cursor {
   Render() {
     ctx.drawImage(sprCrosshair, Input.mouseX - 6, Input.mouseY - 6)  // <- local position 0-320
-    /*
-    ctx.fillText(`mouse x: ${Input.mouseX}`, 8, 12)
-    ctx.fillText(`mouse y: ${Input.mouseY}`, 8, 24)
-
-    ctx.fillText(`view x: ${viewX}`, 8, 38)
-    ctx.fillText(`view y: ${viewY}`, 8, 48)
-    */
   }
 }
 
@@ -245,25 +269,33 @@ class Bullet {
   constructor(x, y) {
     this.x = x
     this.y = y
+    this.team = 0 //0-player 1-enemy
     this.angle = 0
     this.frame = 0
 
     this.colxo = 0
-    this.colyo = -2
+    this.colyo = 0
     this.colW = 8
     this.colH = 8
   }
 
   Update() {
-    if (this.frame < 1) this.frame = 1 
-    this.x += 7 * Math.cos(degToRad(this.angle)) //convert ange to radiant
-    this.y += 7 * Math.sin(degToRad(this.angle)) //convert ange to radiant
+    if (this.frame < 1) { 
+      this.frame = 1
+      this.colxo = -4 - lendirX(-10, degToRad(this.angle) )
+      this.colyo = -4 - lendirY(-10, degToRad(this.angle) )
+    }
+
+    this.x += 7 * Math.cos(degToRad(this.angle))
+    this.y += 7 * Math.sin(degToRad(this.angle))
+
+    if (this.x < 0 || this.x > 320 || this.y < 0 || this.y > 240) instanceDestroy(this)
   }
 
   Render() {
     ctx.save()
     ctx.translate(this.x + viewX, this.y + viewY)
-    ctx.rotate(this.angle * 3.14 / 180)
+    ctx.rotate(this.angle * 3.14 / 180) // <-
     ctx.globalAlpha = 0.15
     ctx.scale(2, 2)
     ctx.drawImage(sprBullet, 16 * Math.floor(this.frame), 0, 16, 16, -4, -8, 16, 16)
@@ -276,24 +308,105 @@ class Bullet {
     ctx.rotate(this.angle * 3.14 / 180)
     ctx.drawImage(sprBullet, 16 * Math.floor(this.frame), 0, 16, 16, 0, -8, 16, 16)
     ctx.restore()
+
+    //ctx.fillStyle = "rgb(0, 0, 128, .5)"
+    //ctx.fillRect((this.x + this.colxo) + Math.floor(viewX), (this.y + this.colyo) + Math.floor(viewY), this.colW, this.colH )
   }
 }
 
+class Corpse {
+  constructor(x, y) {
+    this.x = x
+    this.y = y
+    this.sprite = null
+    this.width = 48
+    this.height = 48
+    this.frame = 0
+    this.maxFrame = 1
+  }
+
+  Render() {
+    if (this.frame > this.maxFrame - 1) {
+      this.frame = this.maxFrame - 1
+    } else {
+      this.frame += 0.2
+    }
+    
+    ctx.drawImage(this.sprite, 48 * Math.floor(this.frame), 0, 48, 48, Math.round(this.x) - 24 + viewX, Math.round(this.y) - 24 + viewY, 48, 48)
+  }
+}
 
 class Crab {
   constructor(x, y) {
     this.x = x
     this.y = y
-    this.Create?.()
+    this.sheet = {idle: sprCrabIdle, walk: sprCrabWalk, hurt: sprCrabHurt, dead: sprCrabDead, fire: sprCrabFire}
+    this.sprite = this.sheet.idle
+    this.frame = 0
+
+    this.hp = 7
+
+    this.colxo = -16
+    this.colyo = -16
+    this.colW = 32
+    this.colH = 32
   }
 
-  Create() {
-    this.sprite = sprCrabIdle
-    this.frame = 0
-  }
   Update() {
-    this.frame += 0.24 
-    if (this.frame > 5) this.frame = 0
+    this.frame += 0.24
+    let maxFrame = 1
+    switch(this.sprite) {
+      case this.sheet.idle: maxFrame = 5; break
+      case this.sheet.walk: maxFrame = 6; break
+      case this.sheet.hurt: maxFrame = 3; break
+    }
+
+    if (this.sprite == this.sheet.hurt && this.frame > maxFrame) {this.frame = 0; this.sprite = this.sheet.idle}
+
+    if (this.frame > maxFrame) this.frame = 0
+   
+    //Collision with Bullets
+    let toColl =  instanceFindAll(Bullet)
+    if (toColl) {
+      toColl.forEach(bullet => {
+        if (checkCollision(this, bullet)) {
+          this.frame = 0
+          this.sprite = this.sheet.hurt
+          this.hp -= 1
+          instanceDestroy(bullet)
+        }
+      })
+    }
+
+    //Death
+    if (this.hp <= 0) {
+      instanceDestroy(this)
+      let corpse = instanceCreate(Corpse, this.x, this.y, backArray)
+      corpse.sprite = sprCrabDead
+      corpse.maxFrame = 7
+    }
+
+    let player = instanceFind(Player) //mainArray.find(item => item instanceof Player)
+
+    let dis = pointDistance(this.x, this.y, player.x, player.y)
+    let angle = pointDirection(this.x, this.y, player.x, player.y)
+
+    if (dis <= 64 ) {
+      if (this.sprite == this.sheet.hurt) return
+
+      if (this.sprite != this.sheet.walk) {
+        this.frame = 0
+        this.sprite = this.sheet.walk
+      }
+      this.x -= .5 * Math.cos(degToRad(angle))
+      this.y -= .5 * Math.sin(degToRad(angle))
+    } else {
+      if (this.sprite == this.sheet.walk) {
+        this.frame = 0
+        this.sprite = this.sheet.idle
+      }
+    }
+
   }
 
   Render() {
@@ -302,6 +415,9 @@ class Crab {
     ctx.globalAlpha = 1
 
     ctx.drawImage(this.sprite, 48 * Math.floor(this.frame), 0, 48, 48, this.x - 24 + viewX, this.y - 24 + viewY, 48, 48)
+    
+    //ctx.fillStyle = "rgb(0, 0, 128, .5)"
+    //ctx.fillRect( Math.floor((this.x + this.colxo) + viewX), Math.floor((this.y + this.colyo) + viewY), this.colW, this.colH )
   }
 }
 
@@ -309,20 +425,49 @@ class Anchor {
   constructor(x, y) {
     this.x = x
     this.y = y
+    this.sprite = sprAnchorIdle
+    this.hp = 5
     this.frame = 0
 
-    this.colxo = 8
-    this.colyo = 8
+    this.colxo = -16
+    this.colyo = -16
     this.colW = 32
     this.colH = 32
   }
 
+  Update() {
+
+    //Collision with Bullets
+    let toColl =  instanceFindAll(Bullet)
+    if (toColl) {
+      toColl.forEach(bullet => {
+        if (checkCollision(this, bullet)) {
+          this.frame = 0
+          this.sprite = sprAnchorHurt
+          this.hp -= 1
+          instanceDestroy(bullet)
+        }
+      })
+    }
+
+    //Death
+    if (this.hp <= 0) {
+      instanceDestroy(this)
+      let corpse = instanceCreate(Corpse, this.x, this.y, backArray)
+      corpse.sprite = sprAnchorDead
+      corpse.maxFrame = 6
+    }
+  }
+
   Render() {
-    this.frame += 0.26 
-    if (this.frame > 6) this.frame = 0 
-    ctx.drawImage(sprAnchor, 48 * Math.floor(this.frame), 0, 48, 48, this.x + viewX, this.y + viewY, 48, 48)
-    ctx.fillStyle = "rgb(0, 0, 128, .5)"
-    ctx.fillRect((this.x + this.colxo) + Math.floor(viewX), (this.y + this.colyo) + Math.floor(viewY), this.colW, this.colH )
+    this.frame += 0.20
+    if (this.sprite == sprAnchorIdle && this.frame > 6) this.frame = 0
+    if (this.sprite == sprAnchorHurt && this.frame > 3) {this.frame = 0; this.sprite = sprAnchorIdle}
+
+    ctx.drawImage(this.sprite, 48 * Math.floor(this.frame), 0, 48, 48, this.x - 24 + viewX, this.y - 24 + viewY, 48, 48)
+    
+    //ctx.fillStyle = "rgb(0, 0, 128, .5)"
+    //ctx.fillRect((this.x + this.colxo) + Math.floor(viewX), (this.y + this.colyo) + Math.floor(viewY), this.colW, this.colH )
   }
 }
 
@@ -360,26 +505,26 @@ class Player {
   constructor(x, y) {
     this.x = x || 0
     this.y = y || 0
-    this.speed = 0
     this.hspeed = 0
     this.vspeed = 0
-    this.Create?.()
-  }
-  
-  Create() {
     this.speed = 1
+
     this.angle = 0
     this.sheet = {idle: sprFishIdle, walk: sprFishWalk}
     this.sprite = sprFishIdle
     this.prevSprite = this.sprite
     this.frame = 0
 
+    this.fire = -1
+    this.recoil = 0
+
     this.colxo = -6
     this.colyo = -6
     this.colW = 14
     this.colH = 14
-  }
 
+  }
+  
   Update() {
     switch(this.sprite) {
       case sprFishWalk: {
@@ -393,6 +538,12 @@ class Player {
         break
       }
     }
+
+     // fire timer
+    if (this.fire >= 0) this.fire--
+
+    // recoil smooth
+    if (this.recoil > 0) this.recoil -= 1 //this.fire == -1 && 
     
     this.hspeed = (Input.d - Input.a) * this.speed
     this.vspeed = (Input.s - Input.w) * this.speed
@@ -404,17 +555,19 @@ class Player {
       
     if (this.sprite !== this.prevSprite) {this.frame = 0; this.prevSprite = this.sprite;}
 
-    if (Input.mouseLeftDown) {
-      let bullet = instanceCreate(Bullet, this.x, this.y)
-      bullet.angle = this.angle
+    if (Input.mouseLeftHold && this.fire == -1) {
+      this.recoil = 5
+      this.fire = 6
+      let bullet = instanceCreate(Bullet, this.x + lendirX(8, degToRad(this.angle)), this.y + lendirY(8, degToRad(this.angle)))
+      bullet.angle = this.angle + (Math.random() * 16 ) - 8
     }
     
-    let toColl = mainArray.find(item=> item instanceof Anchor)
-    checkCollision(this, toColl)
+    let toColl = instanceFind(Anchor)
+    if (toColl) checkCollision(this, toColl) && resolveCollision(this, toColl)
 
     //Set camera focus to these coors
-    viewX = (canvas.width /2 - Math.ceil(this.x)) - Input.mouseX/3 + 160/3
-    viewY = (canvas.height/2 - Math.ceil(this.y)) - Input.mouseY/3 + 120/3
+    viewX = (viewNativeW / 2 - this.x) - (Input.mouseX / 3) + (viewNativeW / 2 / 3)
+    viewY = (viewNativeH / 2 - this.y) - (Input.mouseY / 3) + (viewNativeH / 2 / 3)
   }
 
   Render() {
@@ -422,7 +575,7 @@ class Player {
     
     if (Input.mouseY - viewY <= this.y) {
       ctx.save()
-      ctx.translate(this.x + viewX, this.y + viewY)
+      ctx.translate(this.x + lendirX(-this.recoil, degToRad(this.angle)) + viewX, this.y + lendirY(-this.recoil, degToRad(this.angle)) + viewY)
       ctx.rotate(this.angle * 3.14 / 180) //covert it back to radians
       ctx.scale( 1, (Input.mouseX - viewX > this.x) ? 1 : -1)
       ctx.drawImage(sprAssault, -4, -11)
@@ -444,31 +597,31 @@ class Player {
     
     if (Input.mouseY - viewY >= this.y) {
       ctx.save()
-      ctx.translate(this.x + viewX, this.y + viewY)
+      ctx.translate(this.x + lendirX(-this.recoil, degToRad(this.angle)) + viewX, this.y + lendirY(-this.recoil, degToRad(this.angle)) + viewY)
       ctx.rotate(this.angle * 3.14 / 180) //covert it back to radians
       ctx.scale( 1, (Input.mouseX - viewX > this.x) ? 1 : -1)
       ctx.drawImage(sprAssault, -4, -11)
       ctx.restore()
     }
 
-    ctx.fillStyle = "rgb(0, 0, 128, .5)"
-    ctx.fillRect((this.x + this.colxo) + Math.floor(viewX), (this.y + this.colyo) + Math.floor(viewY), this.colW, this.colH )
+    //ctx.fillStyle = "rgb(0, 0, 128, .5)"
+    //ctx.fillRect((this.x + this.colxo) + Math.floor(viewX), (this.y + this.colyo) + Math.floor(viewY), this.colW, this.colH)
   }
 
 }
 
 function _tileFiller(level) {
-  for(let h = 0; h < 10; h++) {
-    for(let w = 0; w < 12; w++) {
-      level.push({ent: Tile, x: w * 32, y: h * 32},)
+  for(let h = 0; h < 8; h++) {
+    for(let w = 0; w < 10; w++) {
+      level.push({ent: Tile, x: w * 32, y: h * 32, layer: backArray})
     }
   }
 }
 
 function _tileBFiller(level) {
-  for(let h = 0; h < 10; h++) {
-    for(let w = 0; w < 12; w++) {
-      Math.random() < .1 && level.push({ent: TileB, x: w * 32, y: h * 32},)
+  for(let h = 0; h < 8; h++) {
+    for(let w = 0; w < 10; w++) {
+      Math.random() < .1 && level.push({ent: TileB, x: w * 32, y: h * 32, layer: backArray})
     }
   }
 }
@@ -479,8 +632,12 @@ const firstLevel = []
 _tileFiller(firstLevel)
 _tileBFiller(firstLevel)
 
-firstLevel.push({ent: Crab, x: 50, y: 120})
-firstLevel.push({ent: Anchor, x: 130, y: 70})
+firstLevel.push({ent: Anchor, x: 128, y: 64})
+firstLevel.push({ent: Anchor, x: 80, y: 64})
+firstLevel.push({ent: Anchor, x: 32, y: 64})
+
+firstLevel.push({ent: Crab, x: 64, y: 128})
+
 firstLevel.push({ent: Player, x: 16, y: 16})
 
 firstLevel.push({ent: Cursor, x: 0, y: 0})
@@ -497,15 +654,17 @@ console.log("Game started...")
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   
-  backArray.forEach(ent => ent.Render?.())
-
+  //backArray.forEach(ent => ent.Update?.())
   mainArray.forEach(ent => ent.Update?.())
+  //frontArray.forEach(ent => ent.Update?.())
+  
+  backArray.forEach(ent => ent.Render?.())
   mainArray.forEach(ent => ent.Render?.())
-
   frontArray.forEach(ent => ent.Render?.())
 
+  
   Input.mouseLeftDown = 0
   Input.mouseRightDown = 0
 
   requestAnimationFrame(gameLoop)
-};
+}
